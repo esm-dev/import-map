@@ -1,0 +1,30 @@
+{
+  "name": "@esm.sh/import-map",
+  "version": "0.0.0",
+  "description": "A import map parser and resolver.",
+  "type": "module",
+  "main": "dist/import-map.mjs",
+  "module": "dist/import-map.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/import-map.mjs",
+      "types": "./types/import-map.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "esbuild --format=esm --outdir=dist --out-extension:.js=.mjs src/import-map.ts"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esm-dev/import-map.git"
+  },
+  "bugs": {
+    "url": "https://github.com/esm-dev/import-map/issues"
+  },
+  "homepage": "https://github.com/esm-dev/import-map#readme",
+  "author": "ije",
+  "license": "MIT"
+}
