@@ -9,10 +9,14 @@
     ".": {
       "import": "./dist/import-map.mjs",
       "types": "./types/import-map.d.ts"
+    },
+    "./generator": {
+      "import": "./dist/generator.mjs",
+      "types": "./types/generator.d.ts"
     }
   },
   "scripts": {
-    "build": "esbuild --format=esm --outdir=dist --out-extension:.js=.mjs src/import-map.ts"
+    "build": "esbuild --format=esm --outdir=dist --out-extension:.js=.mjs src/*.ts"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"
