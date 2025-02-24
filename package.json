@@ -1,6 +1,6 @@
 {
   "name": "@esm.sh/import-map",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A import map parser and resolver.",
   "type": "module",
   "main": "dist/import-map.mjs",
@@ -16,6 +16,7 @@
     }
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "esbuild --format=esm --outdir=dist --out-extension:.js=.mjs src/*.ts"
   },
   "devDependencies": {
