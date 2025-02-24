@@ -19,7 +19,7 @@ export function parseImportMapFromJson(json: string, baseURL?: string): ImportMa
 export function parseImportMapFromHtml(html: string, baseURL?: string): ImportMap;
 
 /** Resolve the specifier with the import map. */
-export function resolve(importMap: ImportMap, specifier: string, containingFile: string): string;
+export function resolve(importMap: ImportMap, specifier: string, containingFile: string): [url: string, ok: boolean];
 
 /** Check if current browser supports import maps. */
 export function isSupportImportMap(): boolean;
