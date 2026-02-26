@@ -25,7 +25,19 @@ export interface ImportMapRaw {
 
 /** The import map class. */
 export class ImportMap {
-  constructor(baseURL?: string, raw?: ImportMapRaw);
+  constructor(baseURL?: string | URL, init?: Record<string, any>);
+
+  /** The config for generating the new import url from CDN. */
+  config: ImportMapConfig;
+
+  /** The imports of the import map. */
+  imports: Record<string, string>;
+
+  /** The scopes of the import map. */
+  scopes: Record<string, Record<string, string>>;
+
+  /** The integrity of the import map. */
+  integrity: Record<string, string>;
 
   /** The base URL of the import map. */
   get baseURL(): URL;
@@ -39,15 +51,14 @@ export class ImportMap {
   /**
    * Add an import from esm.sh CDN to the import map.
    *
-   * @param importMap - The import map to add the import to.
    * @param specifier - The specifier of the import to add.
    * @param noSRI - Whether to add the import without SRI.
    * @returns A promise that resolves when the import is added.
    */
-  addImport(importMap: ImportMap, specifier: string, noSRI?: boolean): Promise<void>;
+  addImport(specifier: string, noSRI?: boolean): Promise<void>;
 
   /** Resolve the specifier with the import map. */
-  resolve(importMap: ImportMap, specifier: string, containingFile: string): [url: string, ok: boolean];
+  resolve(specifier: string, containingFile: string): [url: string, ok: boolean];
 }
 
 /** Parse the import map from a JSON string. */
