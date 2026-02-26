@@ -1,6 +1,6 @@
 /** The import maps follow the spec at https://wicg.github.io/import-maps/. */
 export interface ImportMap {
-  baseURL: URL;
+  baseURL?: URL;
   config?: Record<string, string>;
   imports: Record<string, string>;
   scopes?: Record<string, Record<string, string>>;

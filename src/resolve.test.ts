@@ -7,7 +7,7 @@ import { resolve } from "./resolve.ts";
 describe("resolve", () => {
   setDefaultTimeout(15000);
 
-  test("does not throw when scopes are missing", () => {
+  test("returns original specifier when not matched", () => {
     const im = createBlankImportMap();
     const [url, ok] = resolve(im, "react", "file:///main.js");
     expect(url).toBe("react");
@@ -60,5 +60,16 @@ describe("resolve", () => {
     [url, ok] = resolve(im, "react/jsx-runtime", "file:///main.js");
     expect(ok).toBeFalse();
     expect(url).toBe("react/jsx-runtime");
+  });
+
+  test("preserves query/hash and normalizes relative mapped urls", () => {
+    const im = createBlankImportMap("https://example.com/app/");
+    im.imports = {
+      local: "./mod.ts",
+    };
+
+    const [url, ok] = resolve(im, "local?dev=1#frag", "https://example.com/app/main.ts");
+    expect(ok).toBeTrue();
+    expect(url).toBe("https://example.com/app/mod.ts?dev=1#frag");
   });
 });

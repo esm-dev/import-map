@@ -3,7 +3,7 @@ import type { ImportMap } from "../types/index.d.ts";
 /** Create a blank import map. */
 export function createBlankImportMap(baseURL?: string): ImportMap {
   return {
-    baseURL: new URL(baseURL ?? ".", "file:///"),
+    baseURL: baseURL ? new URL(baseURL, "file:///") : undefined,
     imports: {},
   };
 }
