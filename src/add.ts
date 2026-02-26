@@ -1,25 +1,6 @@
 import type { ImportMap } from "../types/index.d.ts";
 import { satisfies, valid } from "semver";
 
-/**
- * Add an import from esm.sh CDN to the import map.
- *
- * @param importMap - The import map to add the import to.
- * @param specifier - The specifier of the import to add.
- * @param noSRI - Whether to add the import without SRI.
- * @returns A promise that resolves when the import is added.
- */
-export async function addImport(importMap: ImportMap, specifier: string, noSRI?: boolean): Promise<void> {
-  const imp = parseImportSpecifier(specifier);
-  const config = importMap.config ?? {};
-  const target = normalizeTarget(config.target);
-  const cdnOrigin = getCdnOrigin(config.cdn);
-  const meta = await fetchImportMeta(cdnOrigin, imp, target);
-  const mark = new Set<string>();
-
-  await addImportMeta(importMap, mark, meta, false, undefined, cdnOrigin, target, noSRI ?? false);
-}
-
 type ImportInfo = {
   name: string;
   version: string;
@@ -71,6 +52,151 @@ const ESM_SEGMENTS = new Set([
 
 const SPECIFIER_MARK_SEPARATOR = "\x00";
 const META_CACHE = new Map<string, Promise<ImportMeta>>();
+
+/**
+ * Add an import from esm.sh CDN to the import map.
+ *
+ * @param importMap - The import map to add the import to.
+ * @param specifier - The specifier of the import to add.
+ * @param noSRI - Whether to add the import without SRI.
+ * @returns A promise that resolves when the import is added.
+ */
+export async function addImport(importMap: ImportMap, specifier: string, noSRI?: boolean): Promise<void> {
+  const imp = parseImportSpecifier(specifier);
+  const config = importMap.config ?? {};
+  const target = normalizeTarget(config.target);
+  const cdnOrigin = getCdnOrigin(config.cdn);
+  const meta = await fetchImportMeta(cdnOrigin, imp, target);
+  const mark = new Set<string>();
+
+  await addImportImpl(importMap, mark, meta, false, undefined, cdnOrigin, target, noSRI ?? false);
+}
+
+async function addImportImpl(
+  importMap: ImportMap,
+  mark: Set<string>,
+  imp: ImportMeta,
+  indirect: boolean,
+  targetImports: Record<string, string> | undefined,
+  cdnOrigin: string,
+  target: string,
+  noSRI: boolean,
+): Promise<void> {
+  const markedSpecifier = `${specifierOf(imp)}${SPECIFIER_MARK_SEPARATOR}${imp.version}`;
+  if (mark.has(markedSpecifier)) {
+    return;
+  }
+  mark.add(markedSpecifier);
+
+  const cdnScopeKey = `${cdnOrigin}/`;
+  const cdnScopeImports = importMap.scopes?.[cdnScopeKey];
+
+  const imports = indirect ? (targetImports ?? ensureScope(importMap, cdnScopeKey)) : importMap.imports;
+  const moduleUrl = moduleUrlOf(cdnOrigin, target, imp);
+  const currentSpecifier = specifierOf(imp);
+  imports[currentSpecifier] = moduleUrl;
+
+  await updateIntegrity(importMap, imp, moduleUrl, cdnOrigin, target, noSRI);
+
+  if (!indirect) {
+    if (cdnScopeImports) {
+      delete cdnScopeImports[currentSpecifier];
+    }
+    pruneEmptyScopes(importMap);
+  }
+
+  const allDeps = [
+    ...imp.peerImports.map((pathname) => ({ pathname, isPeer: true })),
+    ...imp.imports.map((pathname) => ({ pathname, isPeer: false })),
+  ];
+
+  await Promise.all(
+    allDeps.map(async ({ pathname, isPeer }) => {
+      if (pathname.startsWith("/node/")) {
+        return;
+      }
+
+      const depImport = parseEsmPath(pathname);
+      if (depImport.name === imp.name) {
+        depImport.version = imp.version;
+      }
+
+      const depSpecifier = specifierOf(depImport);
+      const existingUrl = importMap.imports[depSpecifier] ?? importMap.scopes?.[cdnScopeKey]?.[depSpecifier];
+      let scopedTargetImports = targetImports;
+      if (existingUrl?.startsWith(`${cdnOrigin}/`)) {
+        const existingImport = parseEsmPath(existingUrl);
+        const existingVersion = valid(existingImport.version);
+        if (existingVersion && depImport.version === existingImport.version) {
+          return;
+        }
+        if (existingVersion && depImport.version && !valid(depImport.version)) {
+          if (satisfies(existingVersion, depImport.version, { includePrerelease: true })) {
+            return;
+          }
+          if (isPeer) {
+            console.warn(
+              `incorrect peer dependency(unmeet ${depImport.version}): ${depImport.name}@${existingVersion}`,
+            );
+            return;
+          }
+          const scope = `${cdnOrigin}/${esmSpecifierOf(imp)}/`;
+          scopedTargetImports = ensureScope(importMap, scope);
+        }
+      }
+
+      const depMeta = await fetchImportMeta(cdnOrigin, depImport, target);
+      await addImportImpl(importMap, mark, depMeta, !isPeer, scopedTargetImports, cdnOrigin, target, noSRI);
+    }),
+  );
+
+  pruneEmptyScopes(importMap);
+}
+
+async function updateIntegrity(
+  importMap: ImportMap,
+  imp: ImportMeta,
+  moduleUrl: string,
+  cdnOrigin: string,
+  target: string,
+  noSRI: boolean,
+): Promise<void> {
+  if (noSRI) {
+    if (importMap.integrity) {
+      delete importMap.integrity[moduleUrl];
+      if (Object.keys(importMap.integrity).length === 0) {
+        delete importMap.integrity;
+      }
+    }
+    return;
+  }
+
+  if (!hasExternalImports(imp)) {
+    if (imp.integrity) {
+      importMap.integrity ??= {};
+      importMap.integrity[moduleUrl] = imp.integrity;
+    }
+    return;
+  }
+
+  const integrityMeta = await fetchImportMeta(
+    cdnOrigin,
+    {
+      name: imp.name,
+      version: imp.version,
+      subPath: imp.subPath,
+      github: imp.github,
+      jsr: imp.jsr,
+      external: true,
+      dev: imp.dev,
+    },
+    target,
+  );
+  if (integrityMeta.integrity) {
+    importMap.integrity ??= {};
+    importMap.integrity[moduleUrl] = integrityMeta.integrity;
+  }
+}
 
 function parseImportSpecifier(specifier: string): ImportInfo {
   let source = specifier.trim();
@@ -223,132 +349,6 @@ async function fetchImportMeta(cdnOrigin: string, imp: ImportInfo, target: strin
   } catch (error) {
     META_CACHE.delete(url);
     throw error;
-  }
-}
-
-async function addImportMeta(
-  importMap: ImportMap,
-  mark: Set<string>,
-  imp: ImportMeta,
-  indirect: boolean,
-  targetImports: Record<string, string> | undefined,
-  cdnOrigin: string,
-  target: string,
-  noSRI: boolean,
-): Promise<void> {
-  const markedSpecifier = `${specifierOf(imp)}${SPECIFIER_MARK_SEPARATOR}${imp.version}`;
-  if (mark.has(markedSpecifier)) {
-    return;
-  }
-  mark.add(markedSpecifier);
-
-  const cdnScopeKey = `${cdnOrigin}/`;
-  const cdnScopeImports = importMap.scopes?.[cdnScopeKey];
-
-  const imports = indirect ? (targetImports ?? ensureScope(importMap, cdnScopeKey)) : importMap.imports;
-  const moduleUrl = moduleUrlOf(cdnOrigin, target, imp);
-  const currentSpecifier = specifierOf(imp);
-  imports[currentSpecifier] = moduleUrl;
-
-  await updateIntegrity(importMap, imp, moduleUrl, cdnOrigin, target, noSRI);
-
-  if (!indirect) {
-    if (cdnScopeImports) {
-      delete cdnScopeImports[currentSpecifier];
-    }
-    pruneEmptyScopes(importMap);
-  }
-
-  const allDeps = [
-    ...imp.peerImports.map((pathname) => ({ pathname, isPeer: true })),
-    ...imp.imports.map((pathname) => ({ pathname, isPeer: false })),
-  ];
-
-  await Promise.all(
-    allDeps.map(async ({ pathname, isPeer }) => {
-      if (pathname.startsWith("/node/")) {
-        return;
-      }
-
-      const depImport = parseEsmPath(pathname);
-      if (depImport.name === imp.name) {
-        depImport.version = imp.version;
-      }
-
-      const depSpecifier = specifierOf(depImport);
-      const existingUrl = importMap.imports[depSpecifier] ?? importMap.scopes?.[cdnScopeKey]?.[depSpecifier];
-      let scopedTargetImports = targetImports;
-      if (existingUrl?.startsWith(`${cdnOrigin}/`)) {
-        const existingImport = parseEsmPath(existingUrl);
-        const existingVersion = valid(existingImport.version);
-        if (existingVersion && depImport.version === existingImport.version) {
-          return;
-        }
-        if (existingVersion && depImport.version && !valid(depImport.version)) {
-          if (satisfies(existingVersion, depImport.version, { includePrerelease: true })) {
-            return;
-          }
-          if (isPeer) {
-            console.warn(
-              `incorrect peer dependency(unmeet ${depImport.version}): ${depImport.name}@${existingVersion}`,
-            );
-            return;
-          }
-          const scope = `${cdnOrigin}/${esmSpecifierOf(imp)}/`;
-          scopedTargetImports = ensureScope(importMap, scope);
-        }
-      }
-
-      const depMeta = await fetchImportMeta(cdnOrigin, depImport, target);
-      await addImportMeta(importMap, mark, depMeta, !isPeer, scopedTargetImports, cdnOrigin, target, noSRI);
-    }),
-  );
-
-  pruneEmptyScopes(importMap);
-}
-
-async function updateIntegrity(
-  importMap: ImportMap,
-  imp: ImportMeta,
-  moduleUrl: string,
-  cdnOrigin: string,
-  target: string,
-  noSRI: boolean,
-): Promise<void> {
-  if (noSRI) {
-    if (importMap.integrity) {
-      delete importMap.integrity[moduleUrl];
-      if (Object.keys(importMap.integrity).length === 0) {
-        delete importMap.integrity;
-      }
-    }
-    return;
-  }
-
-  if (!hasExternalImports(imp)) {
-    if (imp.integrity) {
-      importMap.integrity ??= {};
-      importMap.integrity[moduleUrl] = imp.integrity;
-    }
-    return;
-  }
-
-  const integrityMeta = await fetchImportMeta(
-    cdnOrigin,
-    {
-      name: imp.name,
-      version: imp.version,
-      subPath: imp.subPath,
-      github: imp.github,
-      jsr: imp.jsr,
-      external: true,
-      dev: imp.dev,
-    },
-    target,
-  );
-  if (integrityMeta.integrity) {
-    importMap.integrity ??= {};
-    importMap.integrity[moduleUrl] = integrityMeta.integrity;
   }
 }
 

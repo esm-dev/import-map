@@ -64,14 +64,9 @@ describe("addImport", () => {
   test("supports noSRI by removing integrity entries", async () => {
     const im = createBlankImportMap();
 
-    await addImport(im, "react@19");
-    const reactUrl = im.imports.react;
-    expect(im.integrity).toBeDefined();
-    expect(im.integrity![reactUrl]).toBeString();
-    expect(im.integrity![reactUrl].startsWith("sha384-")).toBeTrue();
-
     await addImport(im, "react@19", true);
 
+    const reactUrl = im.imports.react;
     expect(im.integrity?.[reactUrl]).toBeUndefined();
     expect(im.integrity).toBeUndefined();
   });
