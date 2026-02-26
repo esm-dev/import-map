@@ -1,12 +1,11 @@
 # @esm.sh/import-map
 
-An [Import Maps](https://wicg.github.io/import-maps/) manager.
+An [Import Maps](https://wicg.github.io/import-maps/) manager, with features:
 
-- create blank import maps
-- parse import maps from JSON/HTML
-- resolve specifiers with `imports` and `scopes`
-- add npm/jsr/github packages from [esm.sh](https://esm.sh) CDN into an import map
-- maintain optional `integrity` metadata
+- Parse import maps from JSON/HTML
+- Resolve specifiers to URLs using import map matching rules
+- Add npm/jsr/github modules from [esm.sh](https://esm.sh) CDN
+- Generate `integrity` entries for added modules
 
 ## Installation
 
