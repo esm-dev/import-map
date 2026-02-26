@@ -15,54 +15,56 @@ npm i @esm.sh/import-map
 
 ## API
 
-### `createBlankImportMap(baseURL?: string)`
+### `new ImportMap(baseURL?: string, raw?: ImportMapRaw)`
 
-Create an empty import map:
+Create an import map instance:
 
 ```ts
-import { createBlankImportMap } from "@esm.sh/import-map";
+import { ImportMap } from "@esm.sh/import-map";
 
-const im = createBlankImportMap("file:///");
+const im = new ImportMap();
 ```
 
-### `importMapFrom(value: any, baseURL?: string)`
-
-Build an import map from a JS object.
-Supports `config`, `imports`, `scopes`, and `integrity`.
-Non-string values inside these maps are removed during validation.
+You can also initialize from a raw object:
 
 ```ts
-import { importMapFrom } from "@esm.sh/import-map";
-
-const im = importMapFrom({
+const im = new ImportMap("https://example.com/app/", {
+  config: { cdn: "https://esm.sh", target: "es2022" },
   imports: { react: "https://esm.sh/react@19.2.4/es2022/react.mjs" },
-  integrity: { "https://esm.sh/react@19.2.4/es2022/react.mjs": "sha384-..." },
+  scopes: {
+    "https://esm.sh/": {
+      scheduler: "https://esm.sh/scheduler@0.27.0/es2022/scheduler.mjs",
+    },
+  },
+  integrity: {
+    "https://esm.sh/react@19.2.4/es2022/react.mjs": "sha384-...",
+  },
 });
 ```
 
-### `parseImportMapFromJson(json: string, baseURL?: string)`
+### `parseFromJson(json: string, baseURL?: string)`
 
 Parse an import map from JSON text.
 Preserves and validates `config`, `imports`, `scopes`, and `integrity`.
 
 ```ts
-import { parseImportMapFromJson } from "@esm.sh/import-map";
+import { parseFromJson } from "@esm.sh/import-map";
 
-const im = parseImportMapFromJson(`{
+const im = parseFromJson(`{
   "imports": {
     "react": "https://esm.sh/react@19.2.4/es2022/react.mjs"
   }
 }`);
 ```
 
-### `parseImportMapFromHtml(html: string, baseURL?: string)`
+### `parseFromHtml(html: string, baseURL?: string)`
 
 Parse the first `<script type="importmap">` from HTML (browser environment). Returns an empty import map if no `importmap` script tag is found.
 
 ```ts
-import { parseImportMapFromHtml } from "@esm.sh/import-map";
+import { parseFromHtml } from "@esm.sh/import-map";
 
-const im = parseImportMapFromHtml(`<script type="importmap">
+const im = parseFromHtml(`<script type="importmap">
   {
     "imports": {
       "react": "https://esm.sh/react@19.2.4/es2022/react.mjs"
@@ -73,22 +75,9 @@ const im = parseImportMapFromHtml(`<script type="importmap">
 
 > Note: This function requires a browser environment.
 
-### `resolve(importMap: ImportMap, specifier: string, containingFile: string)`
+### `im.addImport(specifier: string, noSRI?: boolean)`
 
-Resolve a specifier using import-map matching rules:
-
-```ts
-import { resolve } from "@esm.sh/import-map";
-
-const [url, ok] = resolve(im, "react", "file:///app/main.ts");
-```
-
-Returns `[resolvedUrl, true]` when matched, otherwise `[originalSpecifier, false]`.
-
-### `addImport(importMap: ImportMap, specifier: string, noSRI?: boolean)`
-
-Fetch package metadata from [esm.sh](https://esm.sh) CDN and add an import entry (plus relevant deps)
-into the map.
+Fetch package metadata from [esm.sh](https://esm.sh) CDN and add an entry (plus relevant deps) to the map.
 
 Supported specifiers include:
 
@@ -98,16 +87,40 @@ Supported specifiers include:
 
 Behavior highlights:
 
-- adds top-level specifier into `imports`
+- adds top-level entries into `imports`
 - adds nested deps into `scopes` when needed
 - cleans up empty scopes
 - updates `integrity` unless `noSRI` is `true`
 
 ```ts
-import { addImport, createBlankImportMap } from "@esm.sh/import-map";
+import { ImportMap } from "@esm.sh/import-map";
 
-const im = createBlankImportMap();
-await addImport(im, "react-dom@19/client");
+const im = new ImportMap();
+await im.addImport("react-dom@19/client");
+```
+
+### `im.resolve(specifier: string, containingFile: string)`
+
+Resolve a specifier using import-map matching rules:
+
+```ts
+const [url, ok] = im.resolve("react", "file:///app/main.ts");
+```
+
+Returns `[resolvedUrl, true]` when matched, otherwise `[originalSpecifier, false]`.
+
+### `im.raw`
+
+`raw` getter returns a clean, key-ordered import-map object (`ImportMapRaw`):
+
+```ts
+const raw = im.raw;
+// {
+//   config?: { ... },
+//   imports?: { ... },
+//   scopes?: { ... },
+//   integrity?: { ... },
+// }
 ```
 
 ### `isSupportImportMap()`
@@ -120,21 +133,11 @@ import { isSupportImportMap } from "@esm.sh/import-map";
 const supported = isSupportImportMap();
 ```
 
-### `isBlankImportMap(importMap: ImportMap)`
-
-Returns `true` when `imports` and `scopes` are empty.
-
-```ts
-import { isBlankImportMap } from "@esm.sh/import-map";
-
-const blank = isBlankImportMap(im);
-```
-
 ## Development
 
 ```bash
-npm test
-npm run build
+bun test
+bun run build
 ```
 
 ## License
