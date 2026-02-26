@@ -35,14 +35,13 @@ function matchImport(specifier: string, imports: ImportMap["imports"]): string |
   if (specifier in imports) {
     return imports[specifier];
   }
+  let bestMatch: string | null = null;
+  let bestKeyLength = -1;
   for (const [k, v] of Object.entries(imports)) {
-    if (k.endsWith("/")) {
-      if (specifier.startsWith(k)) {
-        return v + specifier.slice(k.length);
-      }
-    } else if (specifier.startsWith(k + "/")) {
-      return v + specifier.slice(k.length);
+    if (k.endsWith("/") && specifier.startsWith(k) && k.length > bestKeyLength) {
+      bestMatch = v + specifier.slice(k.length);
+      bestKeyLength = k.length;
     }
   }
-  return null;
+  return bestMatch;
 }

@@ -44,4 +44,21 @@ describe("resolve", () => {
     expect(modUrl.startsWith("https://esm.sh/scheduler@0.27.")).toBeTrue();
     expect(modUrl.endsWith("/es2022/scheduler.mjs")).toBeTrue();
   });
+
+  test("matches longest slash-prefix and does not match subpaths from bare keys", () => {
+    const im = createBlankImportMap();
+    im.imports = {
+      "foo/": "https://cdn.example.com/foo/",
+      "foo/bar/": "https://cdn.example.com/foo-bar/",
+      react: "https://esm.sh/react@19.2.0/es2022/react.mjs",
+    };
+
+    let [url, ok] = resolve(im, "foo/bar/baz", "file:///main.js");
+    expect(ok).toBeTrue();
+    expect(url).toBe("https://cdn.example.com/foo-bar/baz");
+
+    [url, ok] = resolve(im, "react/jsx-runtime", "file:///main.js");
+    expect(ok).toBeFalse();
+    expect(url).toBe("react/jsx-runtime");
+  });
 });
