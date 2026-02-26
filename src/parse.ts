@@ -1,4 +1,5 @@
 import { ImportMap } from "./importmap.ts";
+import { isObject, sanitizeScopes, sanitizeStringMap } from "./sanitize.ts";
 
 /** Parse the import map from a JSON string. */
 export function parseFromJson(json: string, baseURL?: string): ImportMap {
@@ -6,22 +7,10 @@ export function parseFromJson(json: string, baseURL?: string): ImportMap {
   const v = JSON.parse(json);
   if (isObject(v)) {
     const { config, imports, scopes, integrity } = v;
-    if (isObject(config)) {
-      validateStringMap(config);
-      im.config = config as ImportMap["config"];
-    }
-    if (isObject(imports)) {
-      validateImports(imports);
-      im.imports = imports as ImportMap["imports"];
-    }
-    if (isObject(scopes)) {
-      validateScopes(scopes);
-      im.scopes = scopes as ImportMap["scopes"];
-    }
-    if (isObject(integrity)) {
-      validateStringMap(integrity);
-      im.integrity = integrity as ImportMap["integrity"];
-    }
+    im.config = sanitizeStringMap(config) as ImportMap["config"];
+    im.imports = sanitizeStringMap(imports) as ImportMap["imports"];
+    im.scopes = sanitizeScopes(scopes) as ImportMap["scopes"];
+    im.integrity = sanitizeStringMap(integrity) as ImportMap["integrity"];
   }
   return im;
 }
@@ -35,34 +24,4 @@ export function parseFromHtml(html: string, baseURL?: string): ImportMap {
     return parseFromJson(scriptEl.textContent!, baseURL);
   }
   return new ImportMap(baseURL);
-}
-
-function validateImports(imports: Record<string, unknown>) {
-  for (const [k, v] of Object.entries(imports)) {
-    if (!v || typeof v !== "string") {
-      delete imports[k];
-    }
-  }
-}
-
-function validateScopes(imports: Record<string, unknown>) {
-  for (const [k, v] of Object.entries(imports)) {
-    if (isObject(v)) {
-      validateImports(v);
-    } else {
-      delete imports[k];
-    }
-  }
-}
-
-function validateStringMap(map: Record<string, unknown>) {
-  for (const [k, v] of Object.entries(map)) {
-    if (typeof v !== "string") {
-      delete map[k];
-    }
-  }
-}
-
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
 }

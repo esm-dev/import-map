@@ -1,22 +1,23 @@
 import type { ImportMapConfig, ImportMapRaw } from "../types/index.d.ts";
 import { addImport } from "./add.ts";
 import { resolve } from "./resolve.ts";
+import { sanitizeScopes, sanitizeStringMap } from "./sanitize.ts";
 
 export class ImportMap {
   #baseURL: URL;
 
-  config?: ImportMapConfig;
+  config: ImportMapConfig = {};
   imports: Record<string, string> = {};
   scopes: Record<string, Record<string, string>> = {};
   integrity: Record<string, string> = {};
 
-  constructor(baseURL?: string | URL, raw?: ImportMapRaw) {
+  constructor(baseURL?: string | URL, init?: ImportMapRaw) {
     this.#baseURL = new URL(baseURL ?? globalThis.location?.href ?? "file:///");
-    if (raw) {
-      this.config = raw.config;
-      this.imports = raw.imports ?? {};
-      this.scopes = raw.scopes ?? {};
-      this.integrity = raw.integrity ?? {};
+    if (init) {
+      this.config = sanitizeStringMap(init.config) as ImportMapConfig;
+      this.imports = sanitizeStringMap(init.imports);
+      this.scopes = sanitizeScopes(init.scopes);
+      this.integrity = sanitizeStringMap(init.integrity);
     }
   }
 
@@ -30,11 +31,9 @@ export class ImportMap {
 
   get raw(): ImportMapRaw {
     const json: ImportMapRaw = {};
-    if (this.config) {
-      const config = sortStringMap(this.config);
-      if (Object.keys(config).length > 0) {
-        json.config = config;
-      }
+    const config = sortStringMap(this.config);
+    if (Object.keys(config).length > 0) {
+      json.config = config;
     }
     const imports = sortStringMap(this.imports);
     if (Object.keys(imports).length > 0) {
