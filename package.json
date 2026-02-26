@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "prepublishOnly": "npm run build",
-    "build": "rm -rf dist && esbuild --format=esm --outdir=dist --out-extension:.js=.mjs src/index.ts src/add.ts src/blank.ts src/parse.ts src/resolve.ts src/support.ts",
+    "build": "rm -rf dist && esbuild --bundle --format=esm --outdir=dist --out-extension:.js=.mjs --external:semver src/index.ts",
     "test": "bun test src/*.test.ts"
   },
   "dependencies": {
