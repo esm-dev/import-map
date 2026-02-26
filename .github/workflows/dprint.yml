@@ -1,0 +1,21 @@
+name: Dprint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  dprint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dprint
+        run: curl -fsSL https://dprint.dev/install.sh | sh
+
+      - name: Check formatting
+        run: ~/.dprint/bin/dprint check
