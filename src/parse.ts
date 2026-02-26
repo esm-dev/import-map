@@ -5,7 +5,11 @@ import { createBlankImportMap } from "./blank.ts";
 export function importMapFrom(v: any, baseURL?: string): ImportMap {
   const im = createBlankImportMap(baseURL);
   if (isObject(v)) {
-    const { imports, scopes } = v;
+    const { config, imports, scopes, integrity } = v;
+    if (isObject(config)) {
+      validateStringMap(config);
+      im.config = config as ImportMap["config"];
+    }
     if (isObject(imports)) {
       validateImports(imports);
       im.imports = imports as ImportMap["imports"];
@@ -13,6 +17,10 @@ export function importMapFrom(v: any, baseURL?: string): ImportMap {
     if (isObject(scopes)) {
       validateScopes(scopes);
       im.scopes = scopes as ImportMap["scopes"];
+    }
+    if (isObject(integrity)) {
+      validateStringMap(integrity);
+      im.integrity = integrity as ImportMap["integrity"];
     }
   }
   return im;
@@ -23,7 +31,11 @@ export function parseImportMapFromJson(json: string, baseURL?: string): ImportMa
   const im = createBlankImportMap(baseURL);
   const v = JSON.parse(json);
   if (isObject(v)) {
-    const { imports, scopes } = v;
+    const { config, imports, scopes, integrity } = v;
+    if (isObject(config)) {
+      validateStringMap(config);
+      im.config = config as ImportMap["config"];
+    }
     if (isObject(imports)) {
       validateImports(imports);
       im.imports = imports as ImportMap["imports"];
@@ -31,6 +43,10 @@ export function parseImportMapFromJson(json: string, baseURL?: string): ImportMa
     if (isObject(scopes)) {
       validateScopes(scopes);
       im.scopes = scopes as ImportMap["scopes"];
+    }
+    if (isObject(integrity)) {
+      validateStringMap(integrity);
+      im.integrity = integrity as ImportMap["integrity"];
     }
   }
   return im;
@@ -61,6 +77,14 @@ function validateScopes(imports: Record<string, unknown>) {
       validateImports(v);
     } else {
       delete imports[k];
+    }
+  }
+}
+
+function validateStringMap(map: Record<string, unknown>) {
+  for (const [k, v] of Object.entries(map)) {
+    if (typeof v !== "string") {
+      delete map[k];
     }
   }
 }
