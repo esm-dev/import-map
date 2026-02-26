@@ -72,4 +72,26 @@ describe("resolve", () => {
     expect(ok).toBeTrue();
     expect(url).toBe("https://example.com/app/mod.ts?dev=1#frag");
   });
+
+  test("normalizes root-relative mapped urls against base url", () => {
+    const im = createBlankImportMap("https://example.com/app/");
+    im.imports = {
+      root: "/shared/mod.ts",
+    };
+
+    const [url, ok] = resolve(im, "root", "https://example.com/app/main.ts");
+    expect(ok).toBeTrue();
+    expect(url).toBe("https://example.com/shared/mod.ts");
+  });
+
+  test("does not apply prefix mapping when address is not slash-terminated", () => {
+    const im = createBlankImportMap();
+    im.imports = {
+      "pkg/": "https://cdn.example.com/pkg",
+    };
+
+    const [url, ok] = resolve(im, "pkg/subpath", "file:///main.js");
+    expect(ok).toBeFalse();
+    expect(url).toBe("pkg/subpath");
+  });
 });

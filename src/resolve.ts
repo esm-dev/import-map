@@ -2,7 +2,7 @@ import type { ImportMap } from "../types/index.d.ts";
 
 /** Resolve the specifier with the import map. */
 export function resolve(importMap: ImportMap, specifier: string, containingFile: string): [string, boolean] {
-  const baseURL = importMap.baseURL ?? new URL("file:///");
+  const baseURL = importMap.baseURL ?? new URL(globalThis.location?.href ?? "file:///");
   const referrer = new URL(containingFile, baseURL);
   const [specifierWithoutHash, hashPart = ""] = specifier.split("#", 2);
   const [specifierWithoutQuery, queryPart = ""] = specifierWithoutHash.split("?", 2);
@@ -53,7 +53,7 @@ function resolveWith(specifier: string, imports: Record<string, string>): string
 
   for (const key of prefixKeys) {
     const value = imports[key];
-    if (value) {
+    if (value && value.endsWith("/")) {
       return value + specifier.slice(key.length);
     }
   }
@@ -71,7 +71,7 @@ function compareScopeKeys(a: string, b: string): number {
 }
 
 function normalizeUrl(baseURL: URL, path: string): string {
-  if (path.startsWith("./") || path.startsWith("../")) {
+  if (path.startsWith("/") || path.startsWith("./") || path.startsWith("../")) {
     return new URL(path, baseURL).toString();
   }
   return path;
