@@ -1,4 +1,4 @@
-import { describe, expect, setDefaultTimeout, test } from "bun:test";
+import { describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
 
 import { addImport } from "./add.ts";
 import { createBlankImportMap } from "./blank.ts";
@@ -74,5 +74,59 @@ describe("addImport", () => {
 
     expect(im.integrity?.[reactUrl]).toBeUndefined();
     expect(im.integrity).toBeUndefined();
+  });
+
+  test("warns on unmet peer dependency", async () => {
+    const im = createBlankImportMap();
+    im.imports.peer = "https://esm.sh/peer@1.0.0/es2022/peer.mjs";
+
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+      (async (input: unknown) => {
+        const url = input instanceof URL ? input.toString() : input instanceof Request ? input.url : String(input);
+        if (url === "https://esm.sh/pkg@1?meta" || url === "https://esm.sh/pkg@1.0.0?meta") {
+          return new Response(
+            JSON.stringify({
+              name: "pkg",
+              version: "1.0.0",
+              module: "/pkg@1.0.0/es2022/pkg.mjs",
+              integrity: "sha384-pkg",
+              exports: [],
+              imports: [],
+              peerImports: ["/peer@^2.0.0"],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url === "https://esm.sh/*pkg@1?meta" || url === "https://esm.sh/*pkg@1.0.0?meta") {
+          return new Response(
+            JSON.stringify({
+              name: "pkg",
+              version: "1.0.0",
+              module: "/pkg@1.0.0/es2022/pkg.mjs",
+              integrity: "sha384-pkg-ext",
+              exports: [],
+              imports: [],
+              peerImports: ["/peer@^2.0.0"],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+
+    await addImport(im, "pkg@1");
+
+    expect(warn).toHaveBeenCalled();
+    expect(
+      warn.mock.calls.some(
+        ([msg]) => typeof msg === "string" && msg.includes("incorrect peer dependency(unmeet"),
+      ),
+    ).toBeTrue();
+
+    warn.mockRestore();
+    fetchMock.mockRestore();
   });
 });

@@ -289,6 +289,9 @@ async function addImportMeta(
             return;
           }
           if (isPeer) {
+            console.warn(
+              `incorrect peer dependency(unmeet ${depImport.version}): ${depImport.name}@${existingVersion}`,
+            );
             return;
           }
           const scope = `${cdnOrigin}/${esmSpecifierOf(imp)}/`;
