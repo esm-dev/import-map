@@ -1,5 +1,5 @@
-import type { ImportMap } from "../types/index.d.ts";
 import { satisfies, valid } from "semver";
+import type { ImportMap } from "./importmap.ts";
 
 type ImportInfo = {
   name: string;
@@ -164,9 +164,6 @@ async function updateIntegrity(
   if (noSRI) {
     if (importMap.integrity) {
       delete importMap.integrity[moduleUrl];
-      if (Object.keys(importMap.integrity).length === 0) {
-        delete importMap.integrity;
-      }
     }
     return;
   }
@@ -366,9 +363,6 @@ function pruneEmptyScopes(importMap: ImportMap): void {
     if (Object.keys(imports).length === 0) {
       delete importMap.scopes[scope];
     }
-  }
-  if (Object.keys(importMap.scopes).length === 0) {
-    delete importMap.scopes;
   }
 }
 

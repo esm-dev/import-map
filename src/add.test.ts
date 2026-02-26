@@ -1,13 +1,13 @@
 import { describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
 
+import { ImportMap } from "./importmap.ts";
 import { addImport } from "./add.ts";
-import { createBlankImportMap } from "./blank.ts";
 
 describe("addImport", () => {
   setDefaultTimeout(15000);
 
   test("adds imports and scoped dependencies", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
 
     await addImport(im, "react@19");
     await addImport(im, "react-dom@19/client");
@@ -22,18 +22,18 @@ describe("addImport", () => {
   });
 
   test("adds peer imports into top-level imports", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
 
     await addImport(im, "react-dom@19");
 
     const importKeys = Object.keys(im.imports).sort();
     expect(importKeys).toEqual(["react", "react-dom"]);
 
-    expect(im.scopes).toBeUndefined();
+    expect(im.scopes).toEqual({});
   });
 
   test("respects config.cdn and config.target", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     im.config = {
       cdn: "https://cdn.esm.sh",
       target: "esnext",
@@ -48,7 +48,7 @@ describe("addImport", () => {
   });
 
   test("updates integrity entries for added imports", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
 
     await addImport(im, "react-dom@19/client");
 
@@ -62,17 +62,17 @@ describe("addImport", () => {
   });
 
   test("supports noSRI by removing integrity entries", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
 
     await addImport(im, "react@19", true);
 
     const reactUrl = im.imports.react;
     expect(im.integrity?.[reactUrl]).toBeUndefined();
-    expect(im.integrity).toBeUndefined();
+    expect(im.integrity).toEqual({});
   });
 
   test("warns on unmet peer dependency", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     im.imports.peer = "https://esm.sh/peer@1.0.0/es2022/peer.mjs";
 
     const fetchMock = spyOn(globalThis, "fetch").mockImplementation(

@@ -1,21 +1,21 @@
 import { describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { addImport } from "./add.ts";
-import { createBlankImportMap } from "./blank.ts";
+import { ImportMap } from "./importmap.ts";
 import { resolve } from "./resolve.ts";
 
 describe("resolve", () => {
   setDefaultTimeout(15000);
 
   test("returns original specifier when not matched", () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     const [url, ok] = resolve(im, "react", "file:///main.js");
     expect(url).toBe("react");
     expect(ok).toBeFalse();
   });
 
   test("resolves from top-level imports and scoped imports", async () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     await addImport(im, "react-dom@19/client");
 
     let [modUrl, ok] = resolve(im, "react", "file:///main.js");
@@ -46,7 +46,7 @@ describe("resolve", () => {
   });
 
   test("matches longest slash-prefix and does not match subpaths from bare keys", () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     im.imports = {
       "foo/": "https://cdn.example.com/foo/",
       "foo/bar/": "https://cdn.example.com/foo-bar/",
@@ -63,7 +63,7 @@ describe("resolve", () => {
   });
 
   test("preserves query/hash and normalizes relative mapped urls", () => {
-    const im = createBlankImportMap("https://example.com/app/");
+    const im = new ImportMap("https://example.com/app/");
     im.imports = {
       local: "./mod.ts",
     };
@@ -74,7 +74,7 @@ describe("resolve", () => {
   });
 
   test("normalizes root-relative mapped urls against base url", () => {
-    const im = createBlankImportMap("https://example.com/app/");
+    const im = new ImportMap("https://example.com/app/");
     im.imports = {
       root: "/shared/mod.ts",
     };
@@ -85,7 +85,7 @@ describe("resolve", () => {
   });
 
   test("does not apply prefix mapping when address is not slash-terminated", () => {
-    const im = createBlankImportMap();
+    const im = new ImportMap();
     im.imports = {
       "pkg/": "https://cdn.example.com/pkg",
     };

@@ -1,34 +1,8 @@
-import type { ImportMap } from "../types/index.d.ts";
-import { createBlankImportMap } from "./blank.ts";
-
-/** Create an import map from the given object. */
-export function importMapFrom(v: any, baseURL?: string): ImportMap {
-  const im = createBlankImportMap(baseURL);
-  if (isObject(v)) {
-    const { config, imports, scopes, integrity } = v;
-    if (isObject(config)) {
-      validateStringMap(config);
-      im.config = config as ImportMap["config"];
-    }
-    if (isObject(imports)) {
-      validateImports(imports);
-      im.imports = imports as ImportMap["imports"];
-    }
-    if (isObject(scopes)) {
-      validateScopes(scopes);
-      im.scopes = scopes as ImportMap["scopes"];
-    }
-    if (isObject(integrity)) {
-      validateStringMap(integrity);
-      im.integrity = integrity as ImportMap["integrity"];
-    }
-  }
-  return im;
-}
+import { ImportMap } from "./importmap.ts";
 
 /** Parse the import map from a JSON string. */
-export function parseImportMapFromJson(json: string, baseURL?: string): ImportMap {
-  const im = createBlankImportMap(baseURL);
+export function parseFromJson(json: string, baseURL?: string): ImportMap {
+  const im = new ImportMap(baseURL);
   const v = JSON.parse(json);
   if (isObject(v)) {
     const { config, imports, scopes, integrity } = v;
@@ -53,14 +27,14 @@ export function parseImportMapFromJson(json: string, baseURL?: string): ImportMa
 }
 
 /** Parse the import map from the given HTML. (requires Browser environment) */
-export function parseImportMapFromHtml(html: string, baseURL?: string): ImportMap {
+export function parseFromHtml(html: string, baseURL?: string): ImportMap {
   const tplEl = document.createElement("template");
   tplEl.innerHTML = html;
   const scriptEl: HTMLScriptElement | null = tplEl.content.querySelector("script[type='importmap']");
   if (scriptEl) {
-    return parseImportMapFromJson(scriptEl.textContent!, baseURL);
+    return parseFromJson(scriptEl.textContent!, baseURL);
   }
-  return createBlankImportMap(baseURL);
+  return new ImportMap(baseURL);
 }
 
 function validateImports(imports: Record<string, unknown>) {

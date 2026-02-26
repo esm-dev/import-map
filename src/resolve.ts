@@ -1,8 +1,8 @@
-import type { ImportMap } from "../types/index.d.ts";
+import type { ImportMap } from "./importmap.ts";
 
 /** Resolve the specifier with the import map. */
 export function resolve(importMap: ImportMap, specifier: string, containingFile: string): [string, boolean] {
-  const baseURL = importMap.baseURL ?? new URL(globalThis.location?.href ?? "file:///");
+  const baseURL = importMap.baseURL;
   const referrer = new URL(containingFile, baseURL);
   const [specifierWithoutHash, hashPart = ""] = specifier.split("#", 2);
   const [specifierWithoutQuery, queryPart = ""] = specifierWithoutHash.split("?", 2);
