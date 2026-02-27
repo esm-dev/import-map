@@ -75,9 +75,9 @@ const im = parseFromHtml(`<script type="importmap">
 
 > Note: This function requires a browser environment.
 
-### `im.addImport(specifier: string, noSRI?: boolean)`
+### `ImportMap.addImport(specifier: string, noSRI?: boolean)`
 
-Fetch package metadata from [esm.sh](https://esm.sh) CDN and add an entry (plus relevant deps) to the map.
+The `addImport` method fetches package metadata from [esm.sh](https://esm.sh) CDN and adds an entry (plus relevant deps) to the map.
 
 Supported specifiers include:
 
@@ -99,9 +99,9 @@ const im = new ImportMap();
 await im.addImport("react-dom@19/client");
 ```
 
-### `im.resolve(specifier: string, containingFile: string)`
+### `ImportMap.resolve(specifier: string, containingFile: string)`
 
-Resolve a specifier using import-map matching rules:
+The `resolve` method resolves a specifier using import-map matching rules:
 
 ```ts
 const [url, ok] = im.resolve("react", "file:///app/main.ts");
@@ -109,9 +109,9 @@ const [url, ok] = im.resolve("react", "file:///app/main.ts");
 
 Returns `[resolvedUrl, true]` when matched, otherwise `[originalSpecifier, false]`.
 
-### `im.raw`
+### `ImportMap.raw`
 
-`raw` getter returns a clean, key-ordered import-map object (`ImportMapRaw`):
+The `raw` getter returns a clean, key-ordered import-map object (`ImportMapRaw`):
 
 ```ts
 const raw = im.raw;
@@ -125,7 +125,7 @@ const raw = im.raw;
 
 ### `isSupportImportMap()`
 
-Returns whether the current browser supports import maps.
+function `isSupportImportMap()` returns whether the current browser supports import maps.
 
 ```ts
 import { isSupportImportMap } from "@esm.sh/import-map";
