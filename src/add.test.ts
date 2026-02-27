@@ -124,4 +124,45 @@ describe("addImport", () => {
     warn.mockRestore();
     fetchMock.mockRestore();
   });
+
+  test("removes scope specifiers duplicated in imports except exact-version scopes", async () => {
+    const im = new ImportMap();
+    im.imports.shared = "https://esm.sh/shared@1.0.0/es2022/shared.mjs";
+    im.scopes["https://esm.sh/"] = {
+      shared: "https://esm.sh/shared@1.0.0/es2022/shared.mjs",
+      onlyInScope: "https://esm.sh/only-in-scope@1.0.0/es2022/only-in-scope.mjs",
+    };
+    im.scopes["https://esm.sh/pkg2@1.0.0/"] = {
+      shared: "https://esm.sh/shared@1.0.0/es2022/shared.mjs",
+    };
+
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+      (async (input: unknown) => {
+        const url = input instanceof URL ? input.toString() : input instanceof Request ? input.url : String(input);
+        if (url === "https://esm.sh/pkg2@1?meta" || url === "https://esm.sh/pkg2@1.0.0?meta") {
+          return new Response(
+            JSON.stringify({
+              name: "pkg2",
+              version: "1.0.0",
+              module: "/pkg2@1.0.0/es2022/pkg2.mjs",
+              integrity: "sha384-pkg2",
+              exports: [],
+              imports: [],
+              peerImports: [],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }) as typeof fetch,
+    );
+
+    await addImport(im, "pkg2@1");
+
+    expect(im.scopes["https://esm.sh/"]!.shared).toBeUndefined();
+    expect(im.scopes["https://esm.sh/"]!.onlyInScope).toBeString();
+    expect(im.scopes["https://esm.sh/pkg2@1.0.0/"]!.shared).toBeString();
+
+    fetchMock.mockRestore();
+  });
 });

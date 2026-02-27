@@ -70,6 +70,8 @@ export async function addImport(importMap: ImportMap, specifier: string, noSRI?:
   const mark = new Set<string>();
 
   await addImportImpl(importMap, mark, meta, false, undefined, cdnOrigin, target, noSRI ?? false);
+  pruneScopeSpecifiersShadowedByImports(importMap);
+  pruneEmptyScopes(importMap);
 }
 
 async function addImportImpl(
@@ -362,6 +364,21 @@ function pruneEmptyScopes(importMap: ImportMap): void {
   for (const [scope, imports] of Object.entries(importMap.scopes)) {
     if (Object.keys(imports).length === 0) {
       delete importMap.scopes[scope];
+    }
+  }
+}
+
+function pruneScopeSpecifiersShadowedByImports(importMap: ImportMap): void {
+  for (const [scopeKey, scopedImports] of Object.entries(importMap.scopes)) {
+    if (scopeKey.startsWith("https://") || scopeKey.startsWith("http://")) {
+      const url = new URL(scopeKey);
+      if (url.pathname === "/") {
+        for (const specifier of Object.keys(scopedImports)) {
+          if (specifier in importMap.imports) {
+            delete scopedImports[specifier];
+          }
+        }
+      }
     }
   }
 }
