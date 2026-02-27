@@ -1,6 +1,6 @@
 # @esm.sh/import-map
 
-An [Import Maps](https://wicg.github.io/import-maps/) manager, with features:
+An [Import Maps](https://wicg.github.io/import-maps/) parser and resolver, with features:
 
 - Parse import maps from JSON/HTML
 - Resolve specifiers to URLs using import map matching rules
