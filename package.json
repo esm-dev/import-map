@@ -1,6 +1,6 @@
 {
   "name": "@esm.sh/import-map",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A import map parser and resolver.",
   "type": "module",
   "main": "./dist/index.mjs",
