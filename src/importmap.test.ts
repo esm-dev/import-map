@@ -44,24 +44,6 @@ describe("ImportMap", () => {
     });
   });
 
-  test("isBlank reflects imports/scopes state", () => {
-    const im = new ImportMap();
-    expect(im.isBlank).toBeTrue();
-
-    im.imports = {
-      react: "https://esm.sh/react@19.2.4/es2022/react.mjs",
-    };
-    expect(im.isBlank).toBeFalse();
-
-    im.imports = {};
-    im.scopes = {
-      "https://esm.sh/": {
-        scheduler: "https://esm.sh/scheduler@0.27.0/es2022/scheduler.mjs",
-      },
-    };
-    expect(im.isBlank).toBeFalse();
-  });
-
   test("raw returns clean key-ordered raw map", () => {
     const im = new ImportMap();
     im.config = {

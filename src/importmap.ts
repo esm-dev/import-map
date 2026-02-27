@@ -25,10 +25,6 @@ export class ImportMap {
     return this.#baseURL;
   }
 
-  get isBlank(): boolean {
-    return Object.keys(this.imports).length === 0 && Object.keys(this.scopes).length === 0;
-  }
-
   get raw(): ImportMapRaw {
     const json: ImportMapRaw = {};
     const config = sortStringMap(this.config);

@@ -42,9 +42,6 @@ export class ImportMap {
   /** The base URL of the import map. */
   get baseURL(): URL;
 
-  /** Check if the import map is blank. */
-  get isBlank(): boolean;
-
   /** Return a clean, key-ordered raw import map object. */
   get raw(): ImportMapRaw;
 
