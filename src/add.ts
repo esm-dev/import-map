@@ -19,6 +19,8 @@ type ImportMeta = ImportInfo & {
   peerImports: string[];
 };
 
+type Fetcher = (url: string | URL) => Promise<Response>;
+
 const KNOWN_TARGETS = new Set([
   "es2015",
   "es2016",
@@ -65,7 +67,7 @@ export async function addImport(importMap: ImportMap, specifier: string, noSRI?:
   const imp = parseImportSpecifier(specifier);
   const config = importMap.config ?? {};
   const target = normalizeTarget(config.target);
-  const cdnOrigin = getCdnOrigin(config.cdn);
+  const cdnOrigin = normalizeCdnOrigin(config.cdn);
   const meta = await fetchImportMeta(cdnOrigin, imp, target);
   const mark = new Set<string>();
 
@@ -84,13 +86,13 @@ async function addImportImpl(
   target: string,
   noSRI: boolean,
 ): Promise<void> {
-  const markedSpecifier = `${specifierOf(imp)}${SPECIFIER_MARK_SEPARATOR}${imp.version}`;
+  const markedSpecifier = specifierOf(imp) + SPECIFIER_MARK_SEPARATOR + imp.version;
   if (mark.has(markedSpecifier)) {
     return;
   }
   mark.add(markedSpecifier);
 
-  const cdnScopeKey = `${cdnOrigin}/`;
+  const cdnScopeKey = cdnOrigin + "/";
   const cdnScopeImports = importMap.scopes?.[cdnScopeKey];
 
   const imports = indirect ? (targetImports ?? ensureScope(importMap, cdnScopeKey)) : importMap.imports;
@@ -126,7 +128,7 @@ async function addImportImpl(
       const depSpecifier = specifierOf(depImport);
       const existingUrl = importMap.imports[depSpecifier] ?? importMap.scopes?.[cdnScopeKey]?.[depSpecifier];
       let scopedTargetImports = targetImports;
-      if (existingUrl?.startsWith(`${cdnOrigin}/`)) {
+      if (existingUrl?.startsWith(cdnOrigin + "/")) {
         const existingImport = parseEsmPath(existingUrl);
         const existingVersion = valid(existingImport.version);
         if (existingVersion && depImport.version === existingImport.version) {
@@ -138,11 +140,11 @@ async function addImportImpl(
           }
           if (isPeer) {
             console.warn(
-              `incorrect peer dependency(unmeet ${depImport.version}): ${depImport.name}@${existingVersion}`,
+              "incorrect peer dependency(unmeet " + depImport.version + "): " + depImport.name + "@" + existingVersion,
             );
             return;
           }
-          const scope = `${cdnOrigin}/${esmSpecifierOf(imp)}/`;
+          const scope = cdnOrigin + "/" + esmSpecifierOf(imp) + "/";
           scopedTargetImports = ensureScope(importMap, scope);
         }
       }
@@ -226,11 +228,11 @@ function parseImportSpecifier(specifier: string): ImportInfo {
   [packageAndVersion, imp.subPath] = splitByFirst(source, "/");
   [imp.name, imp.version] = splitByFirst(packageAndVersion, "@");
   if (scopeName) {
-    imp.name = `${scopeName}/${imp.name}`;
+    imp.name = scopeName + "/" + imp.name;
   }
 
   if (!imp.name) {
-    throw new Error(`invalid package name or version: ${specifier}`);
+    throw new Error("invalid package name or version: " + specifier);
   }
 
   return imp;
@@ -243,22 +245,27 @@ function normalizeTarget(target: string | undefined): string {
   return "es2022";
 }
 
-function getCdnOrigin(cdn: string | undefined): string {
+function normalizeCdnOrigin(cdn: string | undefined): string {
   if (cdn && (cdn.startsWith("https://") || cdn.startsWith("http://"))) {
-    return cdn.replace(/\/+$/, "");
+    try {
+      return new URL(cdn).origin;
+    } catch (error) {
+      // ignore invalid cdn
+      console.warn("invalid cdn: " + cdn);
+    }
   }
   return "https://esm.sh";
 }
 
 function specifierOf(imp: ImportInfo): string {
   const prefix = imp.github ? "gh:" : imp.jsr ? "jsr:" : "";
-  return `${prefix}${imp.name}${imp.subPath ? `/${imp.subPath}` : ""}`;
+  return prefix + imp.name + (imp.subPath ? "/" + imp.subPath : "");
 }
 
 function esmSpecifierOf(imp: ImportMeta): string {
   const prefix = imp.github ? "gh/" : imp.jsr ? "jsr/" : "";
   const external = hasExternalImports(imp) ? "*" : "";
-  return `${prefix}${external}${imp.name}@${imp.version}`;
+  return prefix + external + imp.name + "@" + imp.version;
 }
 
 function registryPrefix(imp: ImportInfo): string {
@@ -276,7 +283,7 @@ function hasExternalImports(meta: ImportMeta): boolean {
     return true;
   }
   for (const dep of meta.imports) {
-    if (!dep.startsWith("/node/") && !dep.startsWith(`/${meta.name}@`)) {
+    if (!dep.startsWith("/node/") && !dep.startsWith("/" + meta.name + "@")) {
       return true;
     }
   }
@@ -284,26 +291,37 @@ function hasExternalImports(meta: ImportMeta): boolean {
 }
 
 function moduleUrlOf(cdnOrigin: string, target: string, imp: ImportMeta): string {
-  let url = `${cdnOrigin}/${esmSpecifierOf(imp)}/${target}/`;
+  let url = cdnOrigin + "/" + esmSpecifierOf(imp) + "/" + target + "/";
   if (imp.subPath) {
     if (imp.dev || imp.subPath === "jsx-dev-runtime") {
-      url += `${imp.subPath}.development.mjs`;
+      url += imp.subPath + ".development.mjs";
     } else {
-      url += `${imp.subPath}.mjs`;
+      url += imp.subPath + ".mjs";
     }
     return url;
   }
 
   const fileName = imp.name.includes("/") ? imp.name.split("/").at(-1)! : imp.name;
-  return `${url}${fileName}.mjs`;
+  return url + fileName + ".mjs";
+}
+
+let fetcher: Fetcher = globalThis.fetch;
+
+/**
+ * Set the fetcher to use for fetching import meta.
+ *
+ * @param f - The fetcher to use.
+ */
+export function setFetcher(f: Fetcher): void {
+  fetcher = f;
 }
 
 async function fetchImportMeta(cdnOrigin: string, imp: ImportInfo, target: string): Promise<ImportMeta> {
   const star = imp.external ? "*" : "";
-  const version = imp.version ? `@${imp.version}` : "";
-  const subPath = imp.subPath ? `/${imp.subPath}` : "";
-  const targetQuery = target !== "es2022" ? `&target=${encodeURIComponent(target)}` : "";
-  const url = `${cdnOrigin}/${star}${registryPrefix(imp)}${imp.name}${version}${subPath}?meta${targetQuery}`;
+  const version = imp.version ? "@" + imp.version : "";
+  const subPath = imp.subPath ? "/" + imp.subPath : "";
+  const targetQuery = target !== "es2022" ? "&target=" + encodeURIComponent(target) : "";
+  const url = cdnOrigin + "/" + star + registryPrefix(imp) + imp.name + version + subPath + "?meta" + targetQuery;
 
   const cached = META_CACHE.get(url);
   if (cached) {
@@ -311,20 +329,20 @@ async function fetchImportMeta(cdnOrigin: string, imp: ImportInfo, target: strin
   }
 
   const pending = (async () => {
-    const res = await fetch(url);
+    const res = await fetcher(url);
     if (res.status === 404) {
-      throw new Error(`package not found: ${imp.name}${version}${subPath}`);
+      throw new Error("package not found: " + imp.name + version + subPath);
     }
     if (!res.ok) {
-      throw new Error(`unexpected http status ${res.status}: ${await res.text()}`);
+      throw new Error("unexpected http status " + res.status + ": " + await res.text());
     }
 
     const bodyText = await res.text();
     let data: Partial<ImportMeta>;
     try {
       data = JSON.parse(bodyText) as Partial<ImportMeta>;
-    } catch {
-      throw new Error(`invalid meta response from ${url}: ${bodyText.slice(0, 200)}`);
+    } catch (error) {
+      throw new Error("invalid meta response from " + url + ": " + String(error));
     }
     return {
       name: data.name ?? imp.name,
@@ -390,7 +408,7 @@ function parseEsmPath(pathnameOrUrl: string): ImportInfo {
   } else if (pathnameOrUrl.startsWith("/")) {
     pathname = splitByFirst(splitByFirst(pathnameOrUrl, "#")[0], "?")[0];
   } else {
-    throw new Error(`invalid pathname or url: ${pathnameOrUrl}`);
+    throw new Error("invalid pathname or url: " + pathnameOrUrl);
   }
 
   const imp: ImportInfo = {
@@ -413,20 +431,20 @@ function parseEsmPath(pathnameOrUrl: string): ImportInfo {
 
   const segs = pathname.split("/").filter(Boolean);
   if (segs.length === 0) {
-    throw new Error(`invalid pathname: ${pathnameOrUrl}`);
+    throw new Error("invalid pathname: " + pathnameOrUrl);
   }
 
   if (segs[0]!.startsWith("@")) {
     if (!segs[1]) {
-      throw new Error(`invalid pathname: ${pathnameOrUrl}`);
+      throw new Error("invalid pathname: " + pathnameOrUrl);
     }
     const [name, version] = splitByLast(segs[1]!, "@");
-    imp.name = `${segs[0]}/${name}`.replace(/^\*/, "");
+    imp.name = trimLeadingStar(segs[0] + "/" + name);
     imp.version = version;
     segs.splice(0, 2);
   } else {
     const [name, version] = splitByLast(segs[0]!, "@");
-    imp.name = name.replace(/^\*/, "");
+    imp.name = trimLeadingStar(name);
     imp.version = version;
     segs.splice(0, 1);
   }
@@ -447,7 +465,7 @@ function parseEsmPath(pathnameOrUrl: string): ImportInfo {
         subPath = subPath.slice(0, -12);
         imp.dev = true;
       }
-      if (subPath.includes("/") || (subPath !== imp.name && !imp.name.endsWith(`/${subPath}`))) {
+      if (subPath.includes("/") || (subPath !== imp.name && !imp.name.endsWith("/" + subPath))) {
         imp.subPath = subPath;
       }
     } else {
@@ -456,6 +474,13 @@ function parseEsmPath(pathnameOrUrl: string): ImportInfo {
   }
 
   return imp;
+}
+
+function trimLeadingStar(value: string): string {
+  if (value.startsWith("*")) {
+    return value.slice(1);
+  }
+  return value;
 }
 
 function splitByFirst(value: string, separator: string): [string, string] {

@@ -1,7 +1,7 @@
 import { describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
 
 import { ImportMap } from "./importmap.ts";
-import { addImport } from "./add.ts";
+import { addImport, setFetcher } from "./add.ts";
 
 describe("addImport", () => {
   setDefaultTimeout(15000);
@@ -75,54 +75,53 @@ describe("addImport", () => {
     const im = new ImportMap();
     im.imports.peer = "https://esm.sh/peer@1.0.0/es2022/peer.mjs";
 
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
-      (async (input: unknown) => {
-        const url = input instanceof URL ? input.toString() : input instanceof Request ? input.url : String(input);
-        if (url === "https://esm.sh/pkg@1?meta" || url === "https://esm.sh/pkg@1.0.0?meta") {
-          return new Response(
-            JSON.stringify({
-              name: "pkg",
-              version: "1.0.0",
-              module: "/pkg@1.0.0/es2022/pkg.mjs",
-              integrity: "sha384-pkg",
-              exports: [],
-              imports: [],
-              peerImports: ["/peer@^2.0.0"],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url === "https://esm.sh/*pkg@1?meta" || url === "https://esm.sh/*pkg@1.0.0?meta") {
-          return new Response(
-            JSON.stringify({
-              name: "pkg",
-              version: "1.0.0",
-              module: "/pkg@1.0.0/es2022/pkg.mjs",
-              integrity: "sha384-pkg-ext",
-              exports: [],
-              imports: [],
-              peerImports: ["/peer@^2.0.0"],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        return new Response("not found", { status: 404 });
-      }) as typeof fetch,
-    );
+    setFetcher(async (url) => {
+      const text = url.toString();
+      if (text === "https://esm.sh/pkg@1?meta" || text === "https://esm.sh/pkg@1.0.0?meta") {
+        return new Response(
+          JSON.stringify({
+            name: "pkg",
+            version: "1.0.0",
+            module: "/pkg@1.0.0/es2022/pkg.mjs",
+            integrity: "sha384-pkg",
+            exports: [],
+            imports: [],
+            peerImports: ["/peer@^2.0.0"],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (text === "https://esm.sh/*pkg@1?meta" || text === "https://esm.sh/*pkg@1.0.0?meta") {
+        return new Response(
+          JSON.stringify({
+            name: "pkg",
+            version: "1.0.0",
+            module: "/pkg@1.0.0/es2022/pkg.mjs",
+            integrity: "sha384-pkg-ext",
+            exports: [],
+            imports: [],
+            peerImports: ["/peer@^2.0.0"],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    });
 
     const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await addImport(im, "pkg@1");
 
-    await addImport(im, "pkg@1");
-
-    expect(warn).toHaveBeenCalled();
-    expect(
-      warn.mock.calls.some(
-        ([msg]) => typeof msg === "string" && msg.includes("incorrect peer dependency(unmeet"),
-      ),
-    ).toBeTrue();
-
-    warn.mockRestore();
-    fetchMock.mockRestore();
+      expect(warn).toHaveBeenCalled();
+      expect(
+        warn.mock.calls.some(
+          ([msg]) => typeof msg === "string" && msg.includes("incorrect peer dependency(unmeet"),
+        ),
+      ).toBeTrue();
+    } finally {
+      warn.mockRestore();
+      setFetcher(globalThis.fetch);
+    }
   });
 
   test("removes scope specifiers duplicated in imports except exact-version scopes", async () => {
@@ -136,33 +135,33 @@ describe("addImport", () => {
       shared: "https://esm.sh/shared@1.0.0/es2022/shared.mjs",
     };
 
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
-      (async (input: unknown) => {
-        const url = input instanceof URL ? input.toString() : input instanceof Request ? input.url : String(input);
-        if (url === "https://esm.sh/pkg2@1?meta" || url === "https://esm.sh/pkg2@1.0.0?meta") {
-          return new Response(
-            JSON.stringify({
-              name: "pkg2",
-              version: "1.0.0",
-              module: "/pkg2@1.0.0/es2022/pkg2.mjs",
-              integrity: "sha384-pkg2",
-              exports: [],
-              imports: [],
-              peerImports: [],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        return new Response("not found", { status: 404 });
-      }) as typeof fetch,
-    );
+    setFetcher(async (url) => {
+      const text = url.toString();
+      if (text === "https://esm.sh/pkg2@1?meta" || text === "https://esm.sh/pkg2@1.0.0?meta") {
+        return new Response(
+          JSON.stringify({
+            name: "pkg2",
+            version: "1.0.0",
+            module: "/pkg2@1.0.0/es2022/pkg2.mjs",
+            integrity: "sha384-pkg2",
+            exports: [],
+            imports: [],
+            peerImports: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    });
 
-    await addImport(im, "pkg2@1");
+    try {
+      await addImport(im, "pkg2@1");
 
-    expect(im.scopes["https://esm.sh/"]!.shared).toBeUndefined();
-    expect(im.scopes["https://esm.sh/"]!.onlyInScope).toBeString();
-    expect(im.scopes["https://esm.sh/pkg2@1.0.0/"]!.shared).toBeString();
-
-    fetchMock.mockRestore();
+      expect(im.scopes["https://esm.sh/"]!.shared).toBeUndefined();
+      expect(im.scopes["https://esm.sh/"]!.onlyInScope).toBeString();
+      expect(im.scopes["https://esm.sh/pkg2@1.0.0/"]!.shared).toBeString();
+    } finally {
+      setFetcher(globalThis.fetch);
+    }
   });
 });

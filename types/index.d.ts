@@ -66,3 +66,6 @@ export function parseFromHtml(html: string, baseURL?: string): ImportMap;
 
 /** Check if current browser supports import maps. */
 export function isSupportImportMap(): boolean;
+
+/** Set the fetcher to use for fetching import meta. */
+export function setFetcher(fetcher: (url: string | URL) => Promise<Response>): void;
