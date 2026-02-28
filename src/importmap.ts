@@ -79,3 +79,5 @@ function sortScopes(scopes: Record<string, Record<string, string>>): Record<stri
   }
   return next;
 }
+
+export { setFetcher } from "./add.ts";
