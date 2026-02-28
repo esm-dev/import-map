@@ -99,6 +99,19 @@ const im = new ImportMap();
 await im.addImport("react-dom@19/client");
 ```
 
+### `setFetcher(fetcher: (url: string | URL) => Promise<Response>)`
+
+Override the default `fetch` used internally by `addImport`.
+This is useful for caching metadata responses, or to use a custom fetch implementation.
+
+```ts
+// Use a custom fetch with cache.
+setFetcher(cacheFetch);
+
+// Restore default behavior.
+setFetcher(globalThis.fetch);
+```
+
 ### `ImportMap.resolve(specifier: string, containingFile: string)`
 
 The `resolve` method resolves a specifier using import-map matching rules:
