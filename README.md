@@ -15,7 +15,7 @@ npm i @esm.sh/import-map
 
 ## API
 
-### `new ImportMap(baseURL?: string, raw?: ImportMapRaw)`
+### `new ImportMap(init?: ImportMapRaw, baseURL?: string)`
 
 Create an import map instance:
 
@@ -28,7 +28,7 @@ const im = new ImportMap();
 You can also initialize from a raw object:
 
 ```ts
-const im = new ImportMap("https://example.com/app/", {
+const im = new ImportMap({
   config: { cdn: "https://esm.sh", target: "es2022" },
   imports: { react: "https://esm.sh/react@19.2.4/es2022/react.mjs" },
   scopes: {

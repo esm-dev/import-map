@@ -3,7 +3,7 @@ import { isObject, sanitizeScopes, sanitizeStringMap } from "./sanitize.ts";
 
 /** Parse the import map from a JSON string. */
 export function parseFromJson(json: string, baseURL?: string): ImportMap {
-  const im = new ImportMap(baseURL);
+  const im = new ImportMap({}, baseURL);
   const v = JSON.parse(json);
   if (isObject(v)) {
     const { config, imports, scopes, integrity } = v;
@@ -23,5 +23,5 @@ export function parseFromHtml(html: string, baseURL?: string): ImportMap {
   if (scriptEl) {
     return parseFromJson(scriptEl.textContent!, baseURL);
   }
-  return new ImportMap(baseURL);
+  return new ImportMap({}, baseURL);
 }

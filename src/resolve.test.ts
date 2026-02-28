@@ -63,7 +63,7 @@ describe("resolve", () => {
   });
 
   test("preserves query/hash and normalizes relative mapped urls", () => {
-    const im = new ImportMap("https://example.com/app/");
+    const im = new ImportMap({}, "https://example.com/app/");
     im.imports = {
       local: "./mod.ts",
     };
@@ -74,7 +74,7 @@ describe("resolve", () => {
   });
 
   test("normalizes root-relative mapped urls against base url", () => {
-    const im = new ImportMap("https://example.com/app/");
+    const im = new ImportMap({}, "https://example.com/app/");
     im.imports = {
       root: "/shared/mod.ts",
     };

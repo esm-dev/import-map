@@ -26,7 +26,7 @@ describe("ImportMap", () => {
         bad: 123,
       },
     } as unknown as ImportMapRaw;
-    const im = new ImportMap("file:///", init);
+    const im = new ImportMap(init, "file:///");
 
     expect(im.config).toEqual({
       cdn: "https://esm.sh",

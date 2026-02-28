@@ -25,7 +25,7 @@ export interface ImportMapRaw {
 
 /** The import map class. */
 export class ImportMap {
-  constructor(baseURL?: string | URL, init?: Record<string, any>);
+  constructor(init?: Record<string, any>, baseURL?: string | URL);
 
   /** The config for generating the new import url from CDN. */
   config: ImportMapConfig;

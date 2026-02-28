@@ -11,7 +11,7 @@ export class ImportMap {
   scopes: Record<string, Record<string, string>> = {};
   integrity: Record<string, string> = {};
 
-  constructor(baseURL?: string | URL, init?: ImportMapRaw) {
+  constructor(init?: ImportMapRaw, baseURL?: string | URL) {
     this.#baseURL = new URL(baseURL ?? globalThis.location?.href ?? "file:///");
     if (init) {
       this.config = sanitizeStringMap(init.config) as ImportMapConfig;
