@@ -67,7 +67,7 @@ export async function addImport(importMap: ImportMap, specifier: string, noSRI?:
   const imp = parseImportSpecifier(specifier);
   const config = importMap.config ?? {};
   const target = normalizeTarget(config.target);
-  const cdnOrigin = getCdnOrigin(config.cdn);
+  const cdnOrigin = normalizeCdnOrigin(config.cdn);
   const meta = await fetchImportMeta(cdnOrigin, imp, target);
   const mark = new Set<string>();
 
@@ -245,13 +245,14 @@ function normalizeTarget(target: string | undefined): string {
   return "es2022";
 }
 
-function getCdnOrigin(cdn: string | undefined): string {
+function normalizeCdnOrigin(cdn: string | undefined): string {
   if (cdn && (cdn.startsWith("https://") || cdn.startsWith("http://"))) {
-    if (cdn.endsWith("/")) {
-      // remove trailing slash
-      return cdn.slice(0, -1);
+    try {
+      return new URL(cdn).origin;
+    } catch (error) {
+      // ignore invalid cdn
+      console.warn("invalid cdn: " + cdn);
     }
-    return cdn;
   }
   return "https://esm.sh";
 }
@@ -309,7 +310,7 @@ let fetcher: Fetcher = globalThis.fetch;
 /**
  * Set the fetcher to use for fetching import meta.
  *
- * @param fetcher - The fetcher to use.
+ * @param f - The fetcher to use.
  */
 export function setFetcher(f: Fetcher): void {
   fetcher = f;
@@ -341,7 +342,7 @@ async function fetchImportMeta(cdnOrigin: string, imp: ImportInfo, target: strin
     try {
       data = JSON.parse(bodyText) as Partial<ImportMeta>;
     } catch (error) {
-      throw new Error("invalid meta response from " + url + ": " + error.message);
+      throw new Error("invalid meta response from " + url + ": " + String(error));
     }
     return {
       name: data.name ?? imp.name,
