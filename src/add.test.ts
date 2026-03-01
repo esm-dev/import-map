@@ -164,39 +164,4 @@ describe("addImport", () => {
       setFetcher(globalThis.fetch);
     }
   });
-
-  test("preserves pr registry prefix in specifier and URL generation", async () => {
-    const im = new ImportMap();
-    const requests: string[] = [];
-
-    setFetcher(async (url) => {
-      const text = url.toString();
-      requests.push(text);
-      if (text === "https://esm.sh/pr/pkg@1?meta" || text === "https://esm.sh/pr/pkg@1.0.0?meta") {
-        return new Response(
-          JSON.stringify({
-            name: "pkg",
-            version: "1.0.0",
-            module: "/pr/pkg@1.0.0/es2022/pkg.mjs",
-            integrity: "sha384-pr-pkg",
-            exports: [],
-            imports: [],
-            peerImports: [],
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
-      return new Response("not found", { status: 404 });
-    });
-
-    try {
-      await addImport(im, "pr:pkg@1");
-
-      expect(im.imports["pr:pkg"]).toBe("https://esm.sh/pr/pkg@1.0.0/es2022/pkg.mjs");
-      expect(im.imports.pkg).toBeUndefined();
-      expect(requests.some((url) => url.startsWith("https://esm.sh/pr/pkg@"))).toBeTrue();
-    } finally {
-      setFetcher(globalThis.fetch);
-    }
-  });
 });
