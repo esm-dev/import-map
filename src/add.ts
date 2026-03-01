@@ -324,7 +324,7 @@ function parseEsmPath(pathnameOrUrl: string): ImportInfo {
   let subPath: string;
   let hasTargetSegment: boolean;
 
-  if (seg0.startsWith("@")) {
+  if (seg0.startsWith("@") || imp.github) {
     if (!segs[1]) {
       throw new Error("invalid pathname: " + pathnameOrUrl);
     }
