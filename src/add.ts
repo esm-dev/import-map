@@ -264,7 +264,7 @@ function parseImportSpecifier(specifier: string): ImportInfo {
   if (source.startsWith("@") || imp.github) {
     const index = source.indexOf("/");
     if (index === -1) {
-      throw new Error("invalid specifiern: " + specifier);
+      throw new Error("invalid specifier: " + specifier);
     }
     scopeName = source.slice(0, index);
     source = source.slice(index + 1);
