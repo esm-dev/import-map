@@ -3,7 +3,7 @@ import type { ImportMap } from "./importmap.ts";
 
 type ImportInfo = {
   name: string;
-  version: string;
+  version?: string;
   subPath?: string;
   github?: boolean;
   jsr?: boolean;
@@ -235,12 +235,19 @@ function normalizeCdnOrigin(cdn: string | undefined): string {
 }
 
 function specifierOf(imp: ImportInfo): string {
-  const prefix = imp.github ? "gh:" : imp.jsr ? "jsr:" : "";
+  let prefix = "";
+  if (imp.github) {
+    prefix = "github:";
+  } else if (imp.jsr) {
+    prefix = "jsr:";
+  } else if (imp.pr) {
+    prefix = "pr:";
+  }
   return prefix + imp.name + (imp.subPath ? "/" + imp.subPath : "");
 }
 
 function esmSpecifierOf(imp: ImportMeta): string {
-  const prefix = imp.github ? "gh/" : imp.jsr ? "jsr/" : "";
+  const prefix = imp.github ? "gh/" : imp.jsr ? "jsr/" : imp.pr ? "pr/" : "";
   const external = hasExternalImports(imp) ? "*" : "";
   return prefix + external + imp.name + "@" + imp.version;
 }
@@ -252,6 +259,9 @@ function parseImportSpecifier(specifier: string): ImportInfo {
   if (source.startsWith("gh:")) {
     imp.github = true;
     source = source.slice(3);
+  } else if (source.startsWith("github:")) {
+    imp.github = true;
+    source = source.slice(7);
   } else if (source.startsWith("jsr:")) {
     imp.jsr = true;
     source = source.slice(4);
@@ -440,6 +450,7 @@ async function fetchImportMeta(cdnOrigin: string, imp: ImportInfo, target: strin
       subPath: imp.subPath,
       github: imp.github,
       jsr: imp.jsr,
+      pr: imp.pr,
       external: imp.external,
       dev: imp.dev,
       module: data.module ?? "",
